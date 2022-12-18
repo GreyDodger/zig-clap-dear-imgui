@@ -13,7 +13,7 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addSharedLibrary("clap-shaker", "src/main.zig", .unversioned);
+    const exe = b.addSharedLibrary("clap-imgui", "src/main.zig", .unversioned);
     exe.linkLibC();
     exe.addIncludePath("clap/include");
     exe.addIncludePath("src");
@@ -52,12 +52,12 @@ pub const CreateClapPluginStep = struct {
         const self = @fieldParentPtr(Self, "step", step);
         if (self.artifact.target.isWindows()) {
             var dir = try std.fs.openDirAbsolute(self.builder.build_root, .{});
-            _ = try dir.updateFile("zig-out/lib/clap-shaker.dll", dir, "zig-out/lib/clap-shaker.dll.clap", .{});
+            _ = try dir.updateFile("zig-out/lib/clap-imgui.dll", dir, "zig-out/lib/clap-imgui.dll.clap", .{});
         } else if (self.artifact.target.isDarwin()) {
             var dir = try std.fs.openDirAbsolute(self.builder.build_root, .{});
-            _ = try dir.updateFile("zig-out/lib/libclap-shaker.dylib", dir, "zig-out/lib/Noise Shaker.clap/Contents/MacOS/Noise Shaker", .{});
-            _ = try dir.updateFile("macos/info.plist", dir, "zig-out/lib/Noise Shaker.clap/Contents/info.plist", .{});
-            _ = try dir.updateFile("macos/PkgInfo", dir, "zig-out/lib/Noise Shaker.clap/Contents/PkgInfo", .{});
+            _ = try dir.updateFile("zig-out/lib/libclap-imgui.dylib", dir, "zig-out/lib/Clap Imgui.clap/Contents/MacOS/Clap Imgui", .{});
+            _ = try dir.updateFile("macos/info.plist", dir, "zig-out/lib/Clap Imgui.clap/Contents/info.plist", .{});
+            _ = try dir.updateFile("macos/PkgInfo", dir, "zig-out/lib/Clap Imgui.clap/Contents/PkgInfo", .{});
         }
     }
 };

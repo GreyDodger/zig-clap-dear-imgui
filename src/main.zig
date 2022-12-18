@@ -409,14 +409,14 @@ pub const MyPlugin = struct {
 
     const desc = c.clap_plugin_descriptor_t{
         .clap_version = c.clap_version_t{ .major = c.CLAP_VERSION_MAJOR, .minor = c.CLAP_VERSION_MINOR, .revision = c.CLAP_VERSION_REVISION },
-        .id = "michael-flaherty.Noise-Shaker",
-        .name = "Noise Shaker",
+        .id = "michael-flaherty.clap-imgui",
+        .name = "Clap Imgui",
         .vendor = "Michael Flaherty",
         .url = "https://your-domain.com/your-plugin",
         .manual_url = "https://your-domain.com/your-plugin/manual",
         .support_url = "https://your-domain.com/support",
         .version = "0.0.1",
-        .description = "shaker with white noise",
+        .description = "clap plugin using dear imgui for graphics",
         .features = &[_][*c]const u8{
             c.CLAP_PLUGIN_FEATURE_INSTRUMENT,
             c.CLAP_PLUGIN_FEATURE_STEREO,
