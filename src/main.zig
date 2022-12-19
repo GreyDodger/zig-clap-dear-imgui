@@ -14,11 +14,20 @@ const util = @import("util.zig");
 const c_cast = std.zig.c_translation.cast;
 const global = @import("global.zig");
 
+extern fn myDLLMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DWORD) callconv(.C) void;
+pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DWORD, lpvReserved: std.os.windows.LPVOID) callconv(std.os.windows.WINAPI) std.os.windows.BOOL {
+    _ = lpvReserved;
+    myDLLMain(hinstance, fdwReason);
+    return std.os.windows.TRUE;
+}
+
 const Gui = struct {
     extern fn guiCreate() callconv(.C) void;
     extern fn guiDestroy() callconv(.C) void;
     extern fn guiSetParent(window: [*c]const c.clap_window_t) callconv(.C) void;
     extern fn guiSetSize(width: u32, height: u32) callconv(.C) void;
+
+    extern fn dllMain() callconv(.C) void;
 
     // Returns true if the requested gui api is supported
     // [main-thread]

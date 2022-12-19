@@ -28,7 +28,15 @@ pub fn build(b: *std.build.Builder) void {
     }, &[_][]const u8{});
     if (exe.target.isWindows()) {
         exe.linkLibCpp();
-        exe.addCSourceFile("src/gui_windows.cpp", &[_][]const u8{});
+        exe.linkSystemLibrary("User32");
+        exe.linkSystemLibrary("Gdi32");
+        exe.linkSystemLibrary("OpenGL32");
+        exe.linkSystemLibrary("Dwmapi");
+        exe.addCSourceFiles(&[_][]const u8{
+            "src/gui_windows.cpp",
+            "imgui/backends/imgui_impl_opengl3.cpp",
+            "imgui/backends/imgui_impl_win32.cpp",
+        }, &[_][]const u8{});
     } else if (exe.target.isDarwin()) {
         exe.linkLibCpp();
         exe.addCSourceFiles(&[_][]const u8{
