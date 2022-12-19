@@ -21,6 +21,8 @@ const Gui = struct {
         _ = plugin;
         if (c.strcmp(api, &c.CLAP_WINDOW_API_WIN32) == 0 and !is_floating) {
             return true;
+        } else if (c.strcmp(api, &c.CLAP_WINDOW_API_COCOA) == 0 and !is_floating) {
+            return true;
         }
         return false;
     }
