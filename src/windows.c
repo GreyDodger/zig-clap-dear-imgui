@@ -19,9 +19,3 @@ void redirectStdOutToConsoleWindow() {
     setvbuf(hf_in, NULL, _IONBF, 128);
     *stdin = *hf_in;
 }
-
-#import "../clap/include/clap/ext/gui.h"
-
-void guiCreate();
-void guiDestroy();
-void guiSetParent(const clap_window_t* window);

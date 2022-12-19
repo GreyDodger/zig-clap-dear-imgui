@@ -5,8 +5,6 @@ pub const c = @cImport({
     @cInclude("string.h");
     if (builtin.os.tag == .windows) {
         @cInclude("windows.c");
-    } else if (builtin.os.tag == .macos) {
-        @cInclude("macos.h");
     }
 });
 
@@ -17,6 +15,10 @@ const c_cast = std.zig.c_translation.cast;
 const global = @import("global.zig");
 
 const Gui = struct {
+    extern fn guiCreate() callconv(.C) void;
+    extern fn guiDestroy() callconv(.C) void;
+    extern fn guiSetParent(window: [*c]const c.clap_window_t) callconv(.C) void;
+
     // Returns true if the requested gui api is supported
     // [main-thread]
     fn is_api_supported(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool {
@@ -57,14 +59,14 @@ const Gui = struct {
         _ = is_floating;
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
         _ = plug;
-        c.guiCreate();
+        guiCreate();
         return true;
     }
 
     // Free all resources associated with the gui.
     // [main-thread]
     fn destroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
-        c.guiDestroy();
+        guiDestroy();
         _ = plugin;
     }
 
@@ -135,7 +137,7 @@ const Gui = struct {
     // [main-thread & !floating]
     fn set_parent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool {
         _ = plugin;
-        c.guiSetParent(window);
+        guiSetParent(window);
         return true;
     }
 

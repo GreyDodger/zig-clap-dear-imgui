@@ -1,4 +1,4 @@
-#import "../src/macos.h"
+#import "../clap/include/clap/ext/gui.h"
 #import <Cocoa/Cocoa.h>
 
 void guiCreate(){
