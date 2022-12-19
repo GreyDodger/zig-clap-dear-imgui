@@ -14,6 +14,174 @@ const util = @import("util.zig");
 const c_cast = std.zig.c_translation.cast;
 const global = @import("global.zig");
 
+const Gui = struct {
+    // Returns true if the requested gui api is supported
+    // [main-thread]
+    fn is_api_supported(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool {
+        _ = plugin;
+        if (c.strcmp(api, &c.CLAP_WINDOW_API_WIN32) == 0 and !is_floating) {
+            return true;
+        }
+        return false;
+    }
+
+    // Returns true if the plugin has a preferred api.
+    // The host has no obligation to honor the plugin preferrence, this is just a hint.
+    // The const char **api variable should be explicitly assigned as a pointer to
+    // one of the CLAP_WINDOW_API_ constants defined above, not strcopied.
+    // [main-thread]
+    fn get_preferred_api(plugin: [*c]const c.clap_plugin_t, api: [*c][*c]const u8, is_floating: [*c]bool) callconv(.C) bool {
+        _ = plugin;
+        _ = api;
+        _ = is_floating;
+        return true;
+    }
+
+    // Create and allocate all resources necessary for the gui.
+    //
+    // If is_floating is true, then the window will not be managed by the host. The plugin
+    // can set its window to stays above the parent window, see set_transient().
+    // api may be null or blank for floating window.
+    //
+    // If is_floating is false, then the plugin has to embbed its window into the parent window, see
+    // set_parent().
+    //
+    // After this call, the GUI may not be visible yet; don't forget to call show().
+    // [main-thread]
+    fn create(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool {
+        _ = api;
+        _ = is_floating;
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        _ = plug;
+        return true;
+    }
+
+    // Free all resources associated with the gui.
+    // [main-thread]
+    fn destroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
+        _ = plugin;
+    }
+
+    // Set the absolute GUI scaling factor, and override any OS info.
+    // Should not be used if the windowing api relies upon logical pixels.
+    //
+    // If the plugin prefers to work out the scaling factor itself by querying the OS directly,
+    // then ignore the call.
+    //
+    // Returns true if the scaling could be applied
+    // Returns false if the call was ignored, or the scaling could not be applied.
+    // [main-thread]
+    fn set_scale(plugin: [*c]const c.clap_plugin_t, scale: f64) callconv(.C) bool {
+        _ = plugin;
+        _ = scale;
+        return true;
+    }
+
+    // Get the current size of the plugin UI.
+    // clap_plugin_gui->create() must have been called prior to asking the size.
+    // [main-thread]
+    fn get_size(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool {
+        _ = plugin;
+        _ = width;
+        _ = height;
+        return true;
+    }
+
+    // Returns true if the window is resizeable (mouse drag).
+    // Only for embedded windows.
+    // [main-thread]
+    fn can_resize(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
+        _ = plugin;
+        return true;
+    }
+
+    // Returns true if the plugin can provide hints on how to resize the window.
+    // [main-thread]
+    fn get_resize_hints(plugin: [*c]const c.clap_plugin_t, hints: [*c]c.clap_gui_resize_hints_t) callconv(.C) bool {
+        _ = plugin;
+        _ = hints;
+        return true;
+    }
+
+    // If the plugin gui is resizable, then the plugin will calculate the closest
+    // usable size which fits in the given size.
+    // This method does not change the size.
+    //
+    // Only for embedded windows.
+    // [main-thread]
+    fn adjust_size(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool {
+        _ = plugin;
+        _ = width;
+        _ = height;
+        return true;
+    }
+
+    // Sets the window size. Only for embedded windows.
+    // [main-thread]
+    fn set_size(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool {
+        _ = plugin;
+        _ = width;
+        _ = height;
+        return true;
+    }
+
+    // Embbeds the plugin window into the given window.
+    // [main-thread & !floating]
+    fn set_parent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool {
+        _ = plugin;
+        _ = window;
+        return true;
+    }
+
+    // Set the plugin floating window to stay above the given window.
+    // [main-thread & floating]
+    fn set_transient(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool {
+        _ = plugin;
+        _ = window;
+        return true;
+    }
+
+    // Suggests a window title. Only for floating windows.
+    // [main-thread & floating]
+    fn suggest_title(plugin: [*c]const c.clap_plugin_t, title: [*c]const u8) callconv(.C) void {
+        _ = plugin;
+        _ = title;
+    }
+
+    // Show the window.
+    // [main-thread]
+    fn show(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
+        _ = plugin;
+        return true;
+    }
+
+    // Hide the window, this method does not free the resources, it just hides
+    // the window content. Yet it may be a good idea to stop painting timers.
+    // [main-thread]
+    fn hide(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
+        _ = plugin;
+        return true;
+    }
+
+    const Data = c.clap_plugin_gui_t{
+        .is_api_supported = is_api_supported,
+        .get_preferred_api = get_preferred_api,
+        .create = create,
+        .destroy = destroy,
+        .set_scale = set_scale,
+        .get_size = get_size,
+        .can_resize = can_resize,
+        .get_resize_hints = get_resize_hints,
+        .adjust_size = adjust_size,
+        .set_size = set_size,
+        .set_parent = set_parent,
+        .set_transient = set_transient,
+        .suggest_title = suggest_title,
+        .show = show,
+        .hide = hide,
+    };
+};
+
 pub const Params = struct {
     const Values = struct {
         stereo: f64 = 1.0,
@@ -500,6 +668,8 @@ pub const MyPlugin = struct {
             return &Params.Data;
         if (c.strcmp(id, &c.CLAP_EXT_STATE) == 0)
             return &State.Data;
+        if (c.strcmp(id, &c.CLAP_EXT_GUI) == 0)
+            return &Gui.Data;
         return null;
     }
 
