@@ -9,12 +9,14 @@
 
 uint32_t client_width = 0;
 uint32_t client_height = 0;
+bool parented = false;
 
 id <MTLDevice> _device;
 id <MTLCommandQueue> _commandQueue;
 
 @interface MyMTKViewDelegate : NSObject<MTKViewDelegate>
 - (void)drawInMTKView:(MTKView *)view;
+- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size;
 @end
 
 @implementation MyMTKViewDelegate
@@ -105,6 +107,10 @@ id <MTLCommandQueue> _commandQueue;
     [commandBuffer commit];
 
 }
+
+- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
+
+}
 @end
 
 MTKView* mtk_view = nullptr;
@@ -153,7 +159,7 @@ void guiCreate(){
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
 
-	mtk_view = [[MTKView alloc] initWithFrame: CGRectMake(0,0,100,100) device: _device];
+	mtk_view = [[MTKView alloc] initWithFrame: CGRectMake(0,0,client_width,client_height) device: _device];
 	mtk_view.delegate = [MyMTKViewDelegate alloc];
 }
 void guiDestroy(){
@@ -165,10 +171,18 @@ void guiSetParent(const clap_window_t* window){
 	NSView* main_view = (NSView*)window->cocoa;
 	[main_view addSubview: mtk_view];
     ImGui_ImplOSX_Init(mtk_view);
+    parented = true;
 }
 void guiSetSize(uint32_t width, uint32_t height){
 	client_width = width;
 	client_height = height;
+
+	if(mtk_view != nullptr && parented) {
+	    NSRect f = mtk_view.frame;
+	    f.size.width = client_width;
+	    f.size.height = client_height;
+    	mtk_view.frame = f;
+	}
 }
 
 }
