@@ -21,7 +21,8 @@ pub fn build(b: *std.build.Builder) void {
         exe.linkLibCpp();
         exe.addCSourceFile("src/gui_windows.cpp", &[_][]const u8{""});
     } else if (exe.target.isDarwin()) {
-        exe.addCSourceFile("src/gui_macos.mm", &[_][]const u8{"-ObjC"});
+        exe.linkLibCpp();
+        exe.addCSourceFile("src/gui_macos.mm", &[_][]const u8{"-ObjC++"});
         exe.linkFramework("Cocoa");
     }
     exe.setTarget(target);
