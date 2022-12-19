@@ -38,6 +38,7 @@ pub fn build(b: *std.build.Builder) void {
         }, &[_][]const u8{"-ObjC++"});
         exe.linkFramework("Cocoa");
         exe.linkFramework("Metal");
+        exe.linkFramework("MetalKit");
         exe.linkFramework("GameController");
     }
     exe.setTarget(target);
