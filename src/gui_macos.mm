@@ -1,6 +1,8 @@
 #import "../clap/include/clap/ext/gui.h"
 #import <Cocoa/Cocoa.h>
 
+#include "imgui_impl_metal.h"
+#include "imgui_impl_osx.h"
 
 NSTextView* text_view = nullptr;
 uint32_t client_width = 0;
@@ -12,7 +14,6 @@ extern "C" {
 void guiCreate(){
 }
 void guiDestroy(){
-
 }
 void guiSetParent(const clap_window_t* window){
 	NSView* main_view = (NSView*)window->cocoa;

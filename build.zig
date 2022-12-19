@@ -17,9 +17,18 @@ pub fn build(b: *std.build.Builder) void {
     exe.linkLibC();
     exe.addIncludePath("clap/include");
     exe.addIncludePath("src");
+    exe.addIncludePath("imgui");
+    exe.addIncludePath("imgui/backends");
+    exe.addCSourceFiles(&[_][]const u8{
+        "imgui/imgui.cpp",
+        "imgui/imgui_demo.cpp",
+        "imgui/imgui_draw.cpp",
+        "imgui/imgui_tables.cpp",
+        "imgui/imgui_widgets.cpp",
+    }, &[_][]const u8{});
     if (exe.target.isWindows()) {
         exe.linkLibCpp();
-        exe.addCSourceFile("src/gui_windows.cpp", &[_][]const u8{""});
+        exe.addCSourceFile("src/gui_windows.cpp", &[_][]const u8{});
     } else if (exe.target.isDarwin()) {
         exe.linkLibCpp();
         exe.addCSourceFile("src/gui_macos.mm", &[_][]const u8{"-ObjC++"});
