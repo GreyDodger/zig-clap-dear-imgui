@@ -31,8 +31,14 @@ pub fn build(b: *std.build.Builder) void {
         exe.addCSourceFile("src/gui_windows.cpp", &[_][]const u8{});
     } else if (exe.target.isDarwin()) {
         exe.linkLibCpp();
-        exe.addCSourceFile("src/gui_macos.mm", &[_][]const u8{"-ObjC++"});
+        exe.addCSourceFiles(&[_][]const u8{
+            "src/gui_macos.mm",
+            "imgui/backends/imgui_impl_osx.mm",
+            "imgui/backends/imgui_impl_metal.mm",
+        }, &[_][]const u8{"-ObjC++"});
         exe.linkFramework("Cocoa");
+        exe.linkFramework("Metal");
+        exe.linkFramework("GameController");
     }
     exe.setTarget(target);
     exe.setBuildMode(mode);
