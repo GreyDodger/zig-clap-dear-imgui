@@ -18,6 +18,7 @@ const Gui = struct {
     extern fn guiCreate() callconv(.C) void;
     extern fn guiDestroy() callconv(.C) void;
     extern fn guiSetParent(window: [*c]const c.clap_window_t) callconv(.C) void;
+    extern fn guiSetSize(width: u32, height: u32) callconv(.C) void;
 
     // Returns true if the requested gui api is supported
     // [main-thread]
@@ -128,8 +129,7 @@ const Gui = struct {
     // [main-thread]
     fn set_size(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool {
         _ = plugin;
-        _ = width;
-        _ = height;
+        guiSetSize(width, height);
         return true;
     }
 
