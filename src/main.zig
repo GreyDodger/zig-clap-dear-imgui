@@ -4,7 +4,7 @@ pub const c = @cImport({
     @cInclude("clap/clap.h");
     @cInclude("string.h");
     if (builtin.os.tag == .windows) {
-        @cInclude("windows.c");
+        @cInclude("win32_console_log.c");
     }
 });
 
