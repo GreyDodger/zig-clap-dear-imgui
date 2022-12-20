@@ -189,7 +189,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	switch(msg)
 	{
-		case WM_PAINT:
+		case WM_TIMER:
 			renderFrame();
 			break;
 	}
@@ -206,7 +206,7 @@ void guiCreate()
 
 void guiDestroy()
 {
-	
+	KillTimer(global_hwnd, 1);
 }
 void guiSetParent(const clap_window_t* window)
 {
@@ -236,6 +236,8 @@ void guiSetParent(const clap_window_t* window)
 
 	ImGui_ImplWin32_Init(global_hwnd);
 	ImGui_ImplOpenGL3_Init();
+
+	SetTimer(global_hwnd, 1, 1, NULL);
 }
 void guiSetSize(uint32_t width, uint32_t height)
 {
