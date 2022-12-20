@@ -68,7 +68,6 @@ id <MTLCommandQueue> _commandQueue;
 	// Present
     [commandBuffer presentDrawable:view.currentDrawable];
     [commandBuffer commit];
-
 }
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {

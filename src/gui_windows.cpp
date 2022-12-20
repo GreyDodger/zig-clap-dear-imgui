@@ -167,14 +167,15 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 extern "C" {
 
 
-void guiCreate()
+bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating)
 {
     ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), 0, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
     ::RegisterClassExW(&wc);
+    return true;
 }
 
-void guiDestroy()
+void guiDestroy(const clap_plugin_t* plugin)
 {
 	KillTimer(global_hwnd, 1);
 	
@@ -187,7 +188,7 @@ void guiDestroy()
 	global_hwnd = 0;
 }
 
-void guiSetParent(const clap_window_t* window)
+void guiSetParent(const clap_plugin_t* plugin, const clap_window_t* window)
 {
 	HWND parent_window = (HWND)window->win32;
 
@@ -215,18 +216,20 @@ void guiSetParent(const clap_window_t* window)
 
 	SetTimer(global_hwnd, 1, 1, NULL);
 }
-void guiSetSize(uint32_t width, uint32_t height)
+bool guiSetSize(const clap_plugin_t* plugin, uint32_t width, uint32_t height)
 {
 	window_width = width;
 	window_height = height;
     if(global_hwnd != 0) {
         SetWindowPos(global_hwnd, nullptr, 0, 0, width, height, 0);
     }
+	return true;
 }
-void guiGetSize(uint32_t* width, uint32_t* height)
+bool guiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height)
 {
 	(*width) = window_width;
 	(*height) = window_height;
+	return true;
 }
 
 void myDLLMain(HINSTANCE hInstance, DWORD fdwReason) {

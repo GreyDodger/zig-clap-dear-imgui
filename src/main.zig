@@ -23,11 +23,11 @@ pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DW
 }
 
 const Gui = struct {
-    extern fn guiCreate() callconv(.C) void;
-    extern fn guiDestroy() callconv(.C) void;
-    extern fn guiSetParent(window: [*c]const c.clap_window_t) callconv(.C) void;
-    extern fn guiSetSize(width: u32, height: u32) callconv(.C) void;
-    extern fn guiGetSize(width: [*c]u32, height: [*c]u32) callconv(.C) void;
+    extern fn guiCreate(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool;
+    extern fn guiDestroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void;
+    extern fn guiSetParent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool;
+    extern fn guiSetSize(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool;
+    extern fn guiGetSize(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool;
 
     extern fn dllMain() callconv(.C) void;
 
@@ -61,33 +61,6 @@ const Gui = struct {
         return true;
     }
 
-    // Create and allocate all resources necessary for the gui.
-    //
-    // If is_floating is true, then the window will not be managed by the host. The plugin
-    // can set its window to stays above the parent window, see set_transient().
-    // api may be null or blank for floating window.
-    //
-    // If is_floating is false, then the plugin has to embbed its window into the parent window, see
-    // set_parent().
-    //
-    // After this call, the GUI may not be visible yet; don't forget to call show().
-    // [main-thread]
-    fn create(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool {
-        _ = api;
-        _ = is_floating;
-        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        _ = plug;
-        guiCreate();
-        return true;
-    }
-
-    // Free all resources associated with the gui.
-    // [main-thread]
-    fn destroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
-        guiDestroy();
-        _ = plugin;
-    }
-
     // Set the absolute GUI scaling factor, and override any OS info.
     // Should not be used if the windowing api relies upon logical pixels.
     //
@@ -100,15 +73,6 @@ const Gui = struct {
     fn set_scale(plugin: [*c]const c.clap_plugin_t, scale: f64) callconv(.C) bool {
         _ = plugin;
         _ = scale;
-        return true;
-    }
-
-    // Get the current size of the plugin UI.
-    // clap_plugin_gui->create() must have been called prior to asking the size.
-    // [main-thread]
-    fn get_size(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool {
-        _ = plugin;
-        guiGetSize(width, height);
         return true;
     }
 
@@ -138,22 +102,6 @@ const Gui = struct {
         _ = plugin;
         _ = width;
         _ = height;
-        return true;
-    }
-
-    // Sets the window size. Only for embedded windows.
-    // [main-thread]
-    fn set_size(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool {
-        _ = plugin;
-        guiSetSize(width, height);
-        return true;
-    }
-
-    // Embbeds the plugin window into the given window.
-    // [main-thread & !floating]
-    fn set_parent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool {
-        _ = plugin;
-        guiSetParent(window);
         return true;
     }
 
@@ -190,15 +138,39 @@ const Gui = struct {
     const Data = c.clap_plugin_gui_t{
         .is_api_supported = is_api_supported,
         .get_preferred_api = get_preferred_api,
-        .create = create,
-        .destroy = destroy,
+
+        // Create and allocate all resources necessary for the gui.
+        //
+        // If is_floating is true, then the window will not be managed by the host. The plugin
+        // can set its window to stays above the parent window, see set_transient().
+        // api may be null or blank for floating window.
+        //
+        // If is_floating is false, then the plugin has to embbed its window into the parent window, see
+        // set_parent().
+        //
+        // After this call, the GUI may not be visible yet; don't forget to call show().
+        // [main-thread]
+        .create = guiCreate,
+
+        // Free all resources associated with the gui.
+        // [main-thread]
+        .destroy = guiDestroy,
         .set_scale = set_scale,
-        .get_size = get_size,
+
+        // Get the current size of the plugin UI.
+        // clap_plugin_gui->create() must have been called prior to asking the size.
+        // [main-thread]
+        .get_size = guiGetSize,
         .can_resize = can_resize,
         .get_resize_hints = get_resize_hints,
         .adjust_size = adjust_size,
-        .set_size = set_size,
-        .set_parent = set_parent,
+        // Sets the window size. Only for embedded windows.
+        // [main-thread]
+        .set_size = guiSetSize,
+
+        // Embbeds the plugin window into the given window.
+        // [main-thread & !floating]
+        .set_parent = guiSetParent,
         .set_transient = set_transient,
         .suggest_title = suggest_title,
         .show = show,
