@@ -16,9 +16,12 @@ struct GuiData
 {
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	HWND window = 0;
+	HDC win32_device_context = 0;
 	uint32_t window_width = 600;
 	uint32_t window_height = 400;
 };	
+
+ImVector<GuiData*> gui_datas;
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -51,7 +54,7 @@ typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
 typedef HGLRC Type_wglCreateContextAttribsARB(HDC hDC, HGLRC hShareContext, const int *attribList);
 
-void initOpenGL(HWND window) {
+HDC initOpenGL(HWND window) {
 	HDC win32_device_context = GetDC(window);
     
 	{
@@ -117,7 +120,7 @@ void initOpenGL(HWND window) {
 		assert(false);
 	}
 
-	ReleaseDC(window, win32_device_context);
+	return win32_device_context;
 }
 
 
@@ -127,7 +130,7 @@ void imGuiFrame();
 
 }
 
-void renderFrame(HWND window) {
+void renderFrame(GuiData* gui_data) {
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -136,12 +139,13 @@ void renderFrame(HWND window) {
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-    glClearColor(0.5f, 0.5f, 0.5f, 1);
+    ImVec4 clear_color = gui_data->clear_color;
+    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w); 
     glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-	SwapBuffers(GetDC(window));
+	SwapBuffers(gui_data->win32_device_context);
 }
 
 // Win32 message handler
@@ -157,7 +161,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch(msg)
 	{
 		case WM_TIMER:
-			renderFrame(hWnd);
+			for(int i = 0; i < gui_datas.Size; i++)
+			{
+				if(gui_datas[i]->window == hWnd)
+					renderFrame(gui_datas[i]);
+			}
 			break;
 	}
 
@@ -173,6 +181,8 @@ void platformGuiCreate(const void** gui_data)
 	(*ptr) = GuiData{};
 	(*gui_data) = (void*)ptr;
 
+	gui_datas.push_back(ptr);
+
     ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), 0, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
     ::RegisterClassExW(&wc);
@@ -182,12 +192,15 @@ void platformGuiDestroy(void* void_gui_data)
 {
 	GuiData* gui_data = (GuiData*)void_gui_data;
 
+	gui_datas.find_erase_unsorted(gui_data);
+
 	KillTimer(gui_data->window, 1);
-	
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 
+    ReleaseDC(gui_data->window, gui_data->win32_device_context);
     ::UnregisterClassW(L"ImGui Example", global_hinstance);
 	DestroyWindow(gui_data->window);
 
@@ -207,7 +220,7 @@ void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window
     	assert(false);
     }
 
-	initOpenGL(gui_data->window);
+	gui_data->win32_device_context = initOpenGL(gui_data->window);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -223,12 +236,11 @@ void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window
 	ImGui_ImplWin32_Init(gui_data->window);
 	ImGui_ImplOpenGL3_Init();
 
-	SetTimer(gui_data->window, 1, 33, NULL);
+	SetTimer(gui_data->window, 1, 1, NULL);
 }
 void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t height)
 {
 	GuiData* gui_data = (GuiData*)void_gui_data;
-
 	gui_data->window_width = width;
 	gui_data->window_height = height;
     if(gui_data->window != 0) {
