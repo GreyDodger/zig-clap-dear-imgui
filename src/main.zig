@@ -24,11 +24,13 @@ pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DW
 }
 
 const Gui = struct {
-    extern fn platformGuiCreate(ptr: *const ?*anyopaque) callconv(.C) void;
+    extern fn platformGuiCreate(ptr: *const ?*anyopaque, plugin: [*c]const c.clap_plugin_t) callconv(.C) void;
     extern fn platformGuiDestroy(ptr: ?*anyopaque) callconv(.C) void;
     extern fn platformGuiSetParent(ptr: ?*anyopaque, window: [*c]const c.clap_window_t) callconv(.C) void;
     extern fn platformGuiSetSize(ptr: ?*anyopaque, width: [*c]u32, height: [*c]u32) callconv(.C) void;
     extern fn platformGuiGetSize(ptr: ?*anyopaque, width: [*c]u32, height: [*c]u32) callconv(.C) void;
+    extern fn platformGuiShow(ptr: ?*anyopaque) callconv(.C) void;
+    extern fn platformGuiHide(ptr: ?*anyopaque) callconv(.C) void;
 
     extern fn dllMain() callconv(.C) void;
 
@@ -124,7 +126,8 @@ const Gui = struct {
     // Show the window.
     // [main-thread]
     fn show(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
-        _ = plugin;
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiShow(plug.gui_data);
         return true;
     }
 
@@ -132,7 +135,8 @@ const Gui = struct {
     // the window content. Yet it may be a good idea to stop painting timers.
     // [main-thread]
     fn hide(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
-        _ = plugin;
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiHide(plug.gui_data);
         return true;
     }
 
@@ -140,7 +144,7 @@ const Gui = struct {
         _ = api;
         _ = is_floating;
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiCreate(&plug.gui_data);
+        platformGuiCreate(&plug.gui_data, plugin);
         return true;
     }
     fn guiDestroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {

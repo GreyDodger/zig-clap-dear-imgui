@@ -19,6 +19,8 @@ struct GuiData
 	HDC win32_device_context = 0;
 	uint32_t window_width = 600;
 	uint32_t window_height = 400;
+	const clap_plugin_t* plugin = nullptr;
+	bool timer_active = false;
 };	
 
 ImVector<GuiData*> gui_datas;
@@ -175,10 +177,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 extern "C" {
 
 
-void platformGuiCreate(const void** gui_data)
+void platformGuiCreate(const void** gui_data, const clap_plugin_t* plugin)
 {
 	GuiData* ptr = (GuiData*)malloc(sizeof(GuiData));
 	(*ptr) = GuiData{};
+	ptr->plugin = plugin;
+
 	(*gui_data) = (void*)ptr;
 
 	gui_datas.push_back(ptr);
@@ -194,11 +198,12 @@ void platformGuiDestroy(void* void_gui_data)
 
 	gui_datas.find_erase_unsorted(gui_data);
 
-	KillTimer(gui_data->window, 1);
-
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
+
+	if(gui_data->timer_active)
+		KillTimer(gui_data->window, 1);
 
     ReleaseDC(gui_data->window, gui_data->win32_device_context);
     ::UnregisterClassW(L"ImGui Example", global_hinstance);
@@ -236,7 +241,7 @@ void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window
 	ImGui_ImplWin32_Init(gui_data->window);
 	ImGui_ImplOpenGL3_Init();
 
-	SetTimer(gui_data->window, 1, 1, NULL);
+	printf("set parent %d\n", gui_data->window);
 }
 void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t height)
 {
@@ -253,6 +258,24 @@ bool platformGuiGetSize(const void* void_gui_data, uint32_t* width, uint32_t* he
 	(*width) = gui_data->window_width;
 	(*height) = gui_data->window_height;
 	return true;
+}
+void platformGuiShow(const void* void_gui_data)
+{
+	GuiData* gui_data = (GuiData*)void_gui_data;
+	if(!gui_data->timer_active)
+ 	{
+		SetTimer(gui_data->window, 1, 1, NULL);
+		gui_data->timer_active = true;
+	}
+}
+void platformGuiHide(const void* void_gui_data)
+{
+	GuiData* gui_data = (GuiData*)void_gui_data;
+	if(gui_data->timer_active)
+ 	{
+		KillTimer(gui_data->window, 1);
+		gui_data->timer_active = false;
+	}
 }
 
 void myDLLMain(HINSTANCE hInstance, DWORD fdwReason) {
