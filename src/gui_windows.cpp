@@ -212,7 +212,7 @@ void guiSetParent(const clap_plugin_t* plugin, const clap_window_t* window)
 	ImGui_ImplWin32_Init(global_hwnd);
 	ImGui_ImplOpenGL3_Init();
 
-	SetTimer(global_hwnd, 1, 1, NULL);
+	SetTimer(global_hwnd, 1, 33, NULL);
 }
 bool guiSetSize(const clap_plugin_t* plugin, uint32_t width, uint32_t height)
 {
