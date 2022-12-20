@@ -212,6 +212,7 @@ void guiDestroy()
 	
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
 
     ::UnregisterClassW(L"ImGui Example", global_hinstance);
 	DestroyWindow(global_hwnd);
