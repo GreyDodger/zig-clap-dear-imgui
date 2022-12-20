@@ -3,8 +3,6 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
 
-#include "gui.cpp"
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <assert.h>
@@ -120,6 +118,13 @@ void initOpenGL(HWND window) {
 	}
 
 	ReleaseDC(window, win32_device_context);
+}
+
+
+extern "C" {
+
+void imGuiFrame();
+
 }
 
 void renderFrame() {

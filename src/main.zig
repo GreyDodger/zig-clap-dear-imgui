@@ -6,6 +6,7 @@ pub const c = @cImport({
     if (builtin.os.tag == .windows) {
         @cInclude("win32_console_log.c");
     }
+    @cInclude("cimgui.h");
 });
 
 const std = @import("std");
@@ -29,6 +30,12 @@ const Gui = struct {
     extern fn guiGetSize(width: [*c]u32, height: [*c]u32) callconv(.C) void;
 
     extern fn dllMain() callconv(.C) void;
+
+    pub export fn imGuiFrame() callconv(.C) void {
+        c.ImGui_NewFrame();
+        c.ImGui_ShowDemoWindow(null);
+        defer c.ImGui_Render();
+    }
 
     // Returns true if the requested gui api is supported
     // [main-thread]

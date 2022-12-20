@@ -17,6 +17,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.linkLibC();
     exe.addIncludePath("clap/include");
     exe.addIncludePath("src");
+    exe.addIncludePath("dear_bindings");
     exe.addIncludePath("imgui");
     exe.addIncludePath("imgui/backends");
     exe.addCSourceFiles(&[_][]const u8{
@@ -25,6 +26,7 @@ pub fn build(b: *std.build.Builder) void {
         "imgui/imgui_draw.cpp",
         "imgui/imgui_tables.cpp",
         "imgui/imgui_widgets.cpp",
+        "dear_bindings/cimgui.cpp",
     }, &[_][]const u8{});
     if (exe.target.isWindows()) {
         exe.linkLibCpp();

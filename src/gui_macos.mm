@@ -4,10 +4,14 @@
 #include "imgui_impl_metal.h"
 #include "imgui_impl_osx.h"
 
-#include "gui.cpp"
-
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
+
+extern "C" {
+
+void imGuiFrame();
+
+}
 
 uint32_t client_width = 0;
 uint32_t client_height = 0;
