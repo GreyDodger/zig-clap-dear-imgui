@@ -240,8 +240,6 @@ void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window
 
 	ImGui_ImplWin32_Init(gui_data->window);
 	ImGui_ImplOpenGL3_Init();
-
-	printf("set parent %d\n", gui_data->window);
 }
 void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t height)
 {
