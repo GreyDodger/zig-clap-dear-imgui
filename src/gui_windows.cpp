@@ -126,10 +126,6 @@ void renderFrame() {
     ImGui_ImplWin32_NewFrame();
    	ImGui::NewFrame();
 
-            ImGui::Begin("Another Test");                          // Create a window called "Hello, world!" and append into it.
-            ImGui::Text("hi");
-            ImGui::End();
-
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
     if (show_demo_window)
         ImGui::ShowDemoWindow(&show_demo_window);
@@ -196,10 +192,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_PAINT:
 			renderFrame();
 			break;
-		case WM_SIZE:
-			if(global_hwnd != 0)
-				renderFrame();
-			break;
 	}
 
     return ::DefWindowProc(hWnd, msg, wParam, lParam);
@@ -230,11 +222,6 @@ void guiSetParent(const clap_window_t* window)
     }
 
 	initOpenGL(global_hwnd);
-
-	/*
-	::ShowWindow(global_hwnd, SW_SHOWDEFAULT);
-	::UpdateWindow(global_hwnd);
-	*/
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
