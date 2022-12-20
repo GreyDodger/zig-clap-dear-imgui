@@ -49,6 +49,13 @@ const Gui = struct {
                 defer global.allocator.free(str);
                 c.ImGui_TextUnformatted(str.ptr);
             }
+
+            {
+                var value = @floatCast(f32, plug.params.values.gain_amplitude_main);
+                if (c.ImGui_SliderFloatEx("Volume", &value, 0.0, 1.0, "%.3f", 0)) {
+                    plug.params.values.gain_amplitude_main = @floatCast(f64, value);
+                }
+            }
         }
 
         c.ImGui_ShowDemoWindow(null);
