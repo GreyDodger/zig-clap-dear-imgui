@@ -167,7 +167,6 @@ void renderFrame() {
         ImGui::Render();
 
     	ImGuiIO& io = ImGui::GetIO(); (void)io;
-    	printf("Display Size %f %f\n", io.DisplaySize.x, io.DisplaySize.y);
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -201,7 +200,6 @@ extern "C" {
 
 void guiCreate()
 {
-
 }
 
 void guiDestroy()
@@ -245,7 +243,6 @@ void guiSetSize(uint32_t width, uint32_t height)
 	window_height = height;
     if(global_hwnd != 0) {
         SetWindowPos(global_hwnd, nullptr, 0, 0, width, height, 0);
-        renderFrame();
     }
 }
 void guiGetSize(uint32_t* width, uint32_t* height)
