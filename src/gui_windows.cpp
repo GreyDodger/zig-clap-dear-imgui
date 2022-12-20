@@ -128,7 +128,7 @@ HDC initOpenGL(HWND window) {
 
 extern "C" {
 
-void imGuiFrame();
+void imGuiFrame(const clap_plugin_t* plugin);
 
 }
 
@@ -137,7 +137,7 @@ void renderFrame(GuiData* gui_data) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplWin32_NewFrame();
 
-    imGuiFrame();
+    imGuiFrame(gui_data->plugin);
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);

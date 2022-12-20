@@ -34,10 +34,24 @@ const Gui = struct {
 
     extern fn dllMain() callconv(.C) void;
 
-    pub export fn imGuiFrame() callconv(.C) void {
+    pub export fn imGuiFrame(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+
         c.ImGui_NewFrame();
-        c.ImGui_ShowDemoWindow(null);
         defer c.ImGui_Render();
+
+        {
+            _ = c.ImGui_Begin("MyPlugin", null, 0);
+            defer c.ImGui_End();
+
+            {
+                var str = std.fmt.allocPrintZ(global.allocator, "Sample Rate: {d:.2}", .{plug.sample_rate}) catch unreachable;
+                defer global.allocator.free(str);
+                c.ImGui_TextUnformatted(str.ptr);
+            }
+        }
+
+        c.ImGui_ShowDemoWindow(null);
     }
 
     // Returns true if the requested gui api is supported
