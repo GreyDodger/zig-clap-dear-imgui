@@ -26,6 +26,7 @@ const Gui = struct {
     extern fn guiDestroy() callconv(.C) void;
     extern fn guiSetParent(window: [*c]const c.clap_window_t) callconv(.C) void;
     extern fn guiSetSize(width: u32, height: u32) callconv(.C) void;
+    extern fn guiGetSize(width: [*c]u32, height: [*c]u32) callconv(.C) void;
 
     extern fn dllMain() callconv(.C) void;
 
@@ -100,8 +101,7 @@ const Gui = struct {
     // [main-thread]
     fn get_size(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool {
         _ = plugin;
-        _ = width;
-        _ = height;
+        guiGetSize(width, height);
         return true;
     }
 

@@ -14,6 +14,10 @@ static bool show_demo_window = true;
 static bool show_another_window = false;
 static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 static HINSTANCE global_hinstance = 0;
+static HWND global_hwnd = 0;
+static HDC global_hdc = 0;
+static uint32_t window_width = 600;
+static uint32_t window_height = 400;
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -93,7 +97,7 @@ void initOpenGL(HWND window) {
             
 			HGLRC share_context = 0;
 			HGLRC modern_context = wglCreateContextAttribsARB(win32_device_context, share_context, attribs);
-            
+
 			if(modern_context)
 			{
 				if(wglMakeCurrent(win32_device_context, modern_context)) 
@@ -112,78 +116,19 @@ void initOpenGL(HWND window) {
 	{
 		assert(false);
 	}
+
+	ReleaseDC(window, win32_device_context);
 }
 
-// Win32 message handler
-// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-        return true;
-
-    switch (msg)
-    {
-    case WM_SIZE:
-        return 0;
-    case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
-            return 0;
-        break;
-    case WM_DESTROY:
-        ::PostQuitMessage(0);
-        return 0;
-    case WM_PAINT:
-    	return 0;
-    }
-    return ::DefWindowProc(hWnd, msg, wParam, lParam);
-}
-
-extern "C" {
-
-void guiCreate()
-{
-
-}
-
-void guiDestroy()
-{
-	
-}
-void guiSetParent(const clap_window_t* window)
-{
-	HWND parent_window = (HWND)window->win32;
-
-	printf("hinstance %d", global_hinstance);
-
-    // Create application window
-    //ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, parent_window, NULL, wc.hInstance, NULL);
-
-	initOpenGL((HWND)window->win32);
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-	ImGui_ImplOpenGL3_Init();
-	ImGui_ImplWin32_Init(hwnd);
-
+void renderFrame() {
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplWin32_NewFrame();
    	ImGui::NewFrame();
+
+            ImGui::Begin("Another Test");                          // Create a window called "Hello, world!" and append into it.
+            ImGui::Text("hi");
+            ImGui::End();
 
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
     if (show_demo_window)
@@ -225,21 +170,102 @@ void guiSetParent(const clap_window_t* window)
         // Rendering
         ImGui::Render();
 
+    	ImGuiIO& io = ImGui::GetIO(); (void)io;
+    	printf("Display Size %f %f\n", io.DisplaySize.x, io.DisplaySize.y);
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-		SwapBuffers(GetDC(hwnd));
+		SwapBuffers(GetDC(global_hwnd));
 }
-void guiSetSize(uint32_t width, uint32_t height)
+
+// Win32 message handler
+// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
+// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
+// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
+// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
+
+	switch(msg)
+	{
+		case WM_PAINT:
+			renderFrame();
+			break;
+		case WM_SIZE:
+			if(global_hwnd != 0)
+				renderFrame();
+			break;
+	}
+
+    return ::DefWindowProc(hWnd, msg, wParam, lParam);
+}
+
+extern "C" {
+
+void guiCreate()
+{
+
+}
+
+void guiDestroy()
 {
 	
 }
+void guiSetParent(const clap_window_t* window)
+{
+	HWND parent_window = (HWND)window->win32;
+
+    // Create application window
+    //ImGui_ImplWin32_EnableDpiAwareness();
+    WNDCLASSEXW wc = { sizeof(wc), 0, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
+    ::RegisterClassExW(&wc);
+    global_hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, window_width, window_height, parent_window, NULL, wc.hInstance, NULL);
+    if(global_hwnd == 0) {
+    	assert(false);
+    }
+
+	initOpenGL(global_hwnd);
+
+	/*
+	::ShowWindow(global_hwnd, SW_SHOWDEFAULT);
+	::UpdateWindow(global_hwnd);
+	*/
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+	ImGui_ImplWin32_Init(global_hwnd);
+	ImGui_ImplOpenGL3_Init();
+}
+void guiSetSize(uint32_t width, uint32_t height)
+{
+	window_width = width;
+	window_height = height;
+    if(global_hwnd != 0) {
+        SetWindowPos(global_hwnd, nullptr, 0, 0, width, height, 0);
+        renderFrame();
+    }
+}
+void guiGetSize(uint32_t* width, uint32_t* height)
+{
+	(*width) = window_width;
+	(*height) = window_height;
+}
 
 void myDLLMain(HINSTANCE hInstance, DWORD fdwReason) {
-	printf("I am here right");
     if (fdwReason == 1) {
         global_hinstance = hInstance;
     }
