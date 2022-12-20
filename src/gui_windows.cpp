@@ -198,23 +198,32 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 extern "C" {
 
+
 void guiCreate()
 {
+    ImGui_ImplWin32_EnableDpiAwareness();
+    WNDCLASSEXW wc = { sizeof(wc), 0, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
+    ::RegisterClassExW(&wc);
 }
 
 void guiDestroy()
 {
 	KillTimer(global_hwnd, 1);
+	
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+
+    ::UnregisterClassW(L"ImGui Example", global_hinstance);
+	DestroyWindow(global_hwnd);
+	global_hwnd = 0;
 }
+
 void guiSetParent(const clap_window_t* window)
 {
 	HWND parent_window = (HWND)window->win32;
 
     // Create application window
-    ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), 0, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-    ::RegisterClassExW(&wc);
-    global_hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, window_width, window_height, parent_window, NULL, wc.hInstance, NULL);
+    global_hwnd = ::CreateWindowW(L"ImGui Example", L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, window_width, window_height, parent_window, NULL, global_hinstance, NULL);
     if(global_hwnd == 0) {
     	assert(false);
     }
