@@ -10,12 +10,16 @@
 
 #include <stdio.h>
 
-static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 static HINSTANCE global_hinstance = 0;
-static HWND global_hwnd = 0;
-static HDC global_hdc = 0;
-static uint32_t window_width = 600;
-static uint32_t window_height = 400;
+
+struct GuiData
+{
+	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+	HWND global_hwnd = 0;
+	HDC global_hdc = 0;
+	uint32_t window_width = 600;
+	uint32_t window_height = 400;
+};	
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -46,7 +50,6 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // NOTE(michael): opengl functions / types
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
-
 typedef HGLRC Type_wglCreateContextAttribsARB(HDC hDC, HGLRC hShareContext, const int *attribList);
 
 void initOpenGL(HWND window) {
@@ -125,7 +128,7 @@ void imGuiFrame();
 
 }
 
-void renderFrame() {
+void renderFrame(HWND window) {
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -134,12 +137,12 @@ void renderFrame() {
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+    glClearColor(0.5f, 0.5f, 0.5f, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-	SwapBuffers(GetDC(global_hwnd));
+	SwapBuffers(GetDC(window));
 }
 
 // Win32 message handler
@@ -155,7 +158,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch(msg)
 	{
 		case WM_TIMER:
-			renderFrame();
+			renderFrame(hWnd);
 			break;
 	}
 
@@ -165,38 +168,47 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 extern "C" {
 
 
-bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating)
+void platformGuiCreate(const void** gui_data)
 {
+	GuiData* ptr = (GuiData*)malloc(sizeof(GuiData));
+	(*ptr) = GuiData{};
+	(*gui_data) = (void*)ptr;
+
     ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), 0, WndProc, 0L, 0L, global_hinstance, NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
     ::RegisterClassExW(&wc);
-    return true;
 }
 
-void guiDestroy(const clap_plugin_t* plugin)
+void platformGuiDestroy(void* void_gui_data)
 {
-	KillTimer(global_hwnd, 1);
+	GuiData* gui_data = (GuiData*)void_gui_data;
+
+	KillTimer(gui_data->global_hwnd, 1);
 	
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 
     ::UnregisterClassW(L"ImGui Example", global_hinstance);
-	DestroyWindow(global_hwnd);
-	global_hwnd = 0;
+	DestroyWindow(gui_data->global_hwnd);
+
+	free(void_gui_data);
 }
 
-void guiSetParent(const clap_plugin_t* plugin, const clap_window_t* window)
+void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window)
 {
+	GuiData* gui_data = (GuiData*)void_gui_data;
+
 	HWND parent_window = (HWND)window->win32;
 
     // Create application window
-    global_hwnd = ::CreateWindowW(L"ImGui Example", L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, window_width, window_height, parent_window, NULL, global_hinstance, NULL);
-    if(global_hwnd == 0) {
+    gui_data->global_hwnd = ::CreateWindowW(L"ImGui Example", L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, 
+    	gui_data->window_width, gui_data->window_height, parent_window, NULL, global_hinstance, NULL);
+    if(gui_data->global_hwnd == 0) {
     	assert(false);
     }
 
-	initOpenGL(global_hwnd);
+	initOpenGL(gui_data->global_hwnd);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -209,24 +221,26 @@ void guiSetParent(const clap_plugin_t* plugin, const clap_window_t* window)
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
 
-	ImGui_ImplWin32_Init(global_hwnd);
+	ImGui_ImplWin32_Init(gui_data->global_hwnd);
 	ImGui_ImplOpenGL3_Init();
 
-	SetTimer(global_hwnd, 1, 33, NULL);
+	SetTimer(gui_data->global_hwnd, 1, 33, NULL);
 }
-bool guiSetSize(const clap_plugin_t* plugin, uint32_t width, uint32_t height)
+void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t height)
 {
-	window_width = width;
-	window_height = height;
-    if(global_hwnd != 0) {
-        SetWindowPos(global_hwnd, nullptr, 0, 0, width, height, 0);
+	GuiData* gui_data = (GuiData*)void_gui_data;
+
+	gui_data->window_width = width;
+	gui_data->window_height = height;
+    if(gui_data->global_hwnd != 0) {
+        SetWindowPos(gui_data->global_hwnd, nullptr, 0, 0, width, height, 0);
     }
-	return true;
 }
-bool guiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height)
+bool platformGuiGetSize(const void* void_gui_data, uint32_t* width, uint32_t* height)
 {
-	(*width) = window_width;
-	(*height) = window_height;
+	GuiData* gui_data = (GuiData*)void_gui_data;
+	(*width) = gui_data->window_width;
+	(*height) = gui_data->window_height;
 	return true;
 }
 

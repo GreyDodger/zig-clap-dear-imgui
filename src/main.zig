@@ -24,11 +24,11 @@ pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DW
 }
 
 const Gui = struct {
-    extern fn guiCreate(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool;
-    extern fn guiDestroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void;
-    extern fn guiSetParent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool;
-    extern fn guiSetSize(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool;
-    extern fn guiGetSize(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool;
+    extern fn platformGuiCreate(ptr: *const ?*anyopaque) callconv(.C) void;
+    extern fn platformGuiDestroy(ptr: ?*anyopaque) callconv(.C) void;
+    extern fn platformGuiSetParent(ptr: ?*anyopaque, window: [*c]const c.clap_window_t) callconv(.C) void;
+    extern fn platformGuiSetSize(ptr: ?*anyopaque, width: [*c]u32, height: [*c]u32) callconv(.C) void;
+    extern fn platformGuiGetSize(ptr: ?*anyopaque, width: [*c]u32, height: [*c]u32) callconv(.C) void;
 
     extern fn dllMain() callconv(.C) void;
 
@@ -133,6 +133,33 @@ const Gui = struct {
     // [main-thread]
     fn hide(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
         _ = plugin;
+        return true;
+    }
+
+    fn guiCreate(plugin: [*c]const c.clap_plugin_t, api: [*c]const u8, is_floating: bool) callconv(.C) bool {
+        _ = api;
+        _ = is_floating;
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiCreate(&plug.gui_data);
+        return true;
+    }
+    fn guiDestroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiDestroy(plug.gui_data);
+    }
+    fn guiSetParent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool {
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiSetParent(plug.gui_data, window);
+        return true;
+    }
+    fn guiSetSize(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool {
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiSetSize(plug.gui_data, width, height);
+        return true;
+    }
+    fn guiGetSize(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool {
+        var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
+        platformGuiGetSize(plug.gui_data, width, height);
         return true;
     }
 
@@ -571,6 +598,7 @@ pub const MyPlugin = struct {
     hostLog: ?*const c.clap_host_log_t,
     hostLatency: [*c]const c.clap_host_latency_t,
     hostThreadCheck: [*c]const c.clap_host_thread_check_t,
+    gui_data: ?*anyopaque = null,
 
     const desc = c.clap_plugin_descriptor_t{
         .clap_version = c.clap_version_t{ .major = c.CLAP_VERSION_MAJOR, .minor = c.CLAP_VERSION_MINOR, .revision = c.CLAP_VERSION_REVISION },
