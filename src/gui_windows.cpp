@@ -15,8 +15,7 @@ static HINSTANCE global_hinstance = 0;
 struct GuiData
 {
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-	HWND global_hwnd = 0;
-	HDC global_hdc = 0;
+	HWND window = 0;
 	uint32_t window_width = 600;
 	uint32_t window_height = 400;
 };	
@@ -183,14 +182,14 @@ void platformGuiDestroy(void* void_gui_data)
 {
 	GuiData* gui_data = (GuiData*)void_gui_data;
 
-	KillTimer(gui_data->global_hwnd, 1);
+	KillTimer(gui_data->window, 1);
 	
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 
     ::UnregisterClassW(L"ImGui Example", global_hinstance);
-	DestroyWindow(gui_data->global_hwnd);
+	DestroyWindow(gui_data->window);
 
 	free(void_gui_data);
 }
@@ -202,13 +201,13 @@ void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window
 	HWND parent_window = (HWND)window->win32;
 
     // Create application window
-    gui_data->global_hwnd = ::CreateWindowW(L"ImGui Example", L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, 
+    gui_data->window = ::CreateWindowW(L"ImGui Example", L"Dear ImGui DirectX11 Example", WS_CHILD | WS_VISIBLE, 0, 0, 
     	gui_data->window_width, gui_data->window_height, parent_window, NULL, global_hinstance, NULL);
-    if(gui_data->global_hwnd == 0) {
+    if(gui_data->window == 0) {
     	assert(false);
     }
 
-	initOpenGL(gui_data->global_hwnd);
+	initOpenGL(gui_data->window);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -221,10 +220,10 @@ void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
 
-	ImGui_ImplWin32_Init(gui_data->global_hwnd);
+	ImGui_ImplWin32_Init(gui_data->window);
 	ImGui_ImplOpenGL3_Init();
 
-	SetTimer(gui_data->global_hwnd, 1, 33, NULL);
+	SetTimer(gui_data->window, 1, 33, NULL);
 }
 void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t height)
 {
@@ -232,8 +231,8 @@ void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t heig
 
 	gui_data->window_width = width;
 	gui_data->window_height = height;
-    if(gui_data->global_hwnd != 0) {
-        SetWindowPos(gui_data->global_hwnd, nullptr, 0, 0, width, height, 0);
+    if(gui_data->window != 0) {
+        SetWindowPos(gui_data->window, nullptr, 0, 0, width, height, 0);
     }
 }
 bool platformGuiGetSize(const void* void_gui_data, uint32_t* width, uint32_t* height)
