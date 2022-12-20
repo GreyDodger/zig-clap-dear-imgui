@@ -16,6 +16,7 @@ void imGuiFrame();
 uint32_t client_width = 0;
 uint32_t client_height = 0;
 bool parented = false;
+ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 id <MTLDevice> _device;
 id <MTLCommandQueue> _commandQueue;
@@ -79,7 +80,7 @@ MTKView* mtk_view = nullptr;
 
 extern "C" {
 
-void guiCreate(){
+bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating) {
 
     _device = MTLCreateSystemDefaultDevice();
     _commandQueue = [_device newCommandQueue];
@@ -124,18 +125,18 @@ void guiCreate(){
 	mtk_view = [[MTKView alloc] initWithFrame: CGRectMake(0,0,client_width,client_height) device: _device];
 	mtk_view.delegate = [MyMTKViewDelegate alloc];
 }
-void guiDestroy(){
+void guiDestroy(const clap_plugin_t* plugin){
     ImGui_ImplMetal_Shutdown();
     ImGui_ImplOSX_Shutdown();
     ImGui::DestroyContext();
 }
-void guiSetParent(const clap_window_t* window){
+void guiSetParent(const clap_plugin_t* plugin, const clap_window_t* window){
 	NSView* main_view = (NSView*)window->cocoa;
 	[main_view addSubview: mtk_view];
     ImGui_ImplOSX_Init(mtk_view);
     parented = true;
 }
-void guiSetSize(uint32_t width, uint32_t height){
+bool guiSetSize(const clap_plugin_t* plugin, uint32_t width, uint32_t height){
 	client_width = width;
 	client_height = height;
 
@@ -145,6 +146,9 @@ void guiSetSize(uint32_t width, uint32_t height){
 	    f.size.height = client_height;
     	mtk_view.frame = f;
 	}
+}
+bool guiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height){
+    return true;
 }
 
 }
