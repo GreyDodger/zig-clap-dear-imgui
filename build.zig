@@ -14,7 +14,10 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
 
     const exe = b.addSharedLibrary("clap-imgui", "src/main.zig", .unversioned);
+    exe.setTarget(target);
+    exe.setBuildMode(mode);
     exe.linkLibC();
+    exe.linkLibCpp();
     exe.addIncludePath("clap/include");
     exe.addIncludePath("src");
     exe.addIncludePath("dear_bindings");
@@ -29,7 +32,6 @@ pub fn build(b: *std.build.Builder) void {
         "dear_bindings/cimgui.cpp",
     }, &[_][]const u8{});
     if (exe.target.isWindows()) {
-        exe.linkLibCpp();
         exe.linkSystemLibrary("User32");
         exe.linkSystemLibrary("Gdi32");
         exe.linkSystemLibrary("OpenGL32");
@@ -40,7 +42,6 @@ pub fn build(b: *std.build.Builder) void {
             "imgui/backends/imgui_impl_win32.cpp",
         }, &[_][]const u8{});
     } else if (exe.target.isDarwin()) {
-        exe.linkLibCpp();
         exe.addCSourceFiles(&[_][]const u8{
             "src/gui_macos.mm",
             "imgui/backends/imgui_impl_osx.mm",
@@ -51,8 +52,6 @@ pub fn build(b: *std.build.Builder) void {
         exe.linkFramework("MetalKit");
         exe.linkFramework("GameController");
     }
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
     exe.install();
 
     const rename_dll_step = CreateClapPluginStep.create(b, exe);
