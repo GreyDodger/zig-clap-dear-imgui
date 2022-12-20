@@ -81,7 +81,6 @@ MTKView* mtk_view = nullptr;
 extern "C" {
 
 bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating) {
-
     _device = MTLCreateSystemDefaultDevice();
     _commandQueue = [_device newCommandQueue];
 
@@ -122,8 +121,9 @@ bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating) {
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
 
-	mtk_view = [[MTKView alloc] initWithFrame: CGRectMake(0,0,client_width,client_height) device: _device];
-	mtk_view.delegate = [MyMTKViewDelegate alloc];
+    mtk_view = [[MTKView alloc] initWithFrame: CGRectMake(0,0,client_width,client_height) device: _device];
+    mtk_view.delegate = [MyMTKViewDelegate alloc];
+    return true;
 }
 void guiDestroy(const clap_plugin_t* plugin){
     ImGui_ImplMetal_Shutdown();
@@ -146,6 +146,8 @@ bool guiSetSize(const clap_plugin_t* plugin, uint32_t width, uint32_t height){
 	    f.size.height = client_height;
     	mtk_view.frame = f;
 	}
+    
+    return true;
 }
 bool guiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height){
     return true;

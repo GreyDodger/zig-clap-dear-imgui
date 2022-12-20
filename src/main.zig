@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 pub const c = @cImport({
     @cInclude("clap/clap.h");
     @cInclude("string.h");
+    @cInclude("stdarg.h");
     if (builtin.os.tag == .windows) {
         @cInclude("win32_console_log.c");
     }
