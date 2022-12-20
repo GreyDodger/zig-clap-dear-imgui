@@ -9,7 +9,7 @@
 
 extern "C" {
 
-void imGuiFrame();
+void imGuiFrame(const clap_plugin_t* plugin);
 
 }
 
@@ -17,6 +17,7 @@ uint32_t client_width = 0;
 uint32_t client_height = 0;
 bool parented = false;
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+const clap_plugin_t* global_plugin = nullptr;
 
 id <MTLDevice> _device;
 id <MTLCommandQueue> _commandQueue;
@@ -55,7 +56,7 @@ id <MTLCommandQueue> _commandQueue;
     ImGui_ImplOSX_NewFrame(view);
 #endif
 
-    imGuiFrame();
+    imGuiFrame(global_plugin);
 
     ImDrawData* draw_data = ImGui::GetDrawData();
 
@@ -80,7 +81,9 @@ MTKView* mtk_view = nullptr;
 
 extern "C" {
 
-bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating) {
+void platformGuiCreate(const void** gui_data, const clap_plugin_t* plugin) {
+    global_plugin = plugin;
+
     _device = MTLCreateSystemDefaultDevice();
     _commandQueue = [_device newCommandQueue];
 
@@ -123,34 +126,33 @@ bool guiCreate(const clap_plugin_t* plugin, const char* api, bool is_floating) {
 
     mtk_view = [[MTKView alloc] initWithFrame: CGRectMake(0,0,client_width,client_height) device: _device];
     mtk_view.delegate = [MyMTKViewDelegate alloc];
-    return true;
 }
-void guiDestroy(const clap_plugin_t* plugin){
+void platformGuiDestroy(void* void_gui_data) {
     ImGui_ImplMetal_Shutdown();
     ImGui_ImplOSX_Shutdown();
     ImGui::DestroyContext();
 }
-void guiSetParent(const clap_plugin_t* plugin, const clap_window_t* window){
+void platformGuiSetParent(const void* void_gui_data, const clap_window_t* window) {
 	NSView* main_view = (NSView*)window->cocoa;
 	[main_view addSubview: mtk_view];
     ImGui_ImplOSX_Init(mtk_view);
     parented = true;
 }
-bool guiSetSize(const clap_plugin_t* plugin, uint32_t width, uint32_t height){
+void platformGuiSetSize(const void* void_gui_data, uint32_t width, uint32_t height) {
 	client_width = width;
 	client_height = height;
-
 	if(mtk_view != nullptr && parented) {
 	    NSRect f = mtk_view.frame;
 	    f.size.width = client_width;
 	    f.size.height = client_height;
     	mtk_view.frame = f;
 	}
-    
-    return true;
 }
-bool guiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height){
-    return true;
+void platformGuiGetSize(const void* void_gui_data, uint32_t* width, uint32_t* height) {
+}
+void platformGuiShow(const void* void_gui_data) {
+}
+void platformGuiHide(const void* void_gui_data) {
 }
 
 }
