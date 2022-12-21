@@ -232,21 +232,6 @@ const Gui = struct {
 };
 
 pub const Params = struct {
-    const Values = struct {
-        stereo: f64 = 1.0,
-        gain_amplitude_main: f64 = 0.5,
-        length_a: f64 = 0.0,
-        length_d_beat_1: f64 = 150.0,
-        length_d_beat_2: f64 = 100.0,
-        length_d_beat_3: f64 = 50.0,
-        length_d_beat_4: f64 = 100.0,
-        gain_amplitude_beat_1: f64 = 1.0,
-        gain_amplitude_beat_2: f64 = 0.8,
-        gain_amplitude_beat_3: f64 = 0.6,
-        gain_amplitude_beat_4: f64 = 0.4,
-        swing: f64 = 0.0,
-    };
-
     values: Values = Values{},
 
     const ValueMeta = struct {
@@ -256,6 +241,7 @@ pub const Params = struct {
         min_value: f64 = 0.0,
         max_value: f64 = 1.0,
     };
+
     const ValueType = enum {
         Bool,
         VolumeAmp,
@@ -265,19 +251,18 @@ pub const Params = struct {
         TVal,
     };
 
+    const Values = struct {
+        stereo: f64 = 1.0,
+        gain_amplitude_main: f64 = 0.5,
+        a0: f64 = 1.0,
+        a1: f64 = 0.0,
+    };
+
     const value_metas = [std.meta.fields(Values).len]ValueMeta{
         .{ .id = 0x5da004c1, .name = "Stereo", .t = .Bool },
         .{ .id = 0xe100e598, .name = "Volume" },
-        .{ .id = 0xa898f74a, .name = "Shaker Env: Attack", .t = .TimeMilliseconds, .min_value = 0.0, .max_value = 100 },
-        .{ .id = 0x52a6f72d, .name = "Shaker Env: Delay (beat 1)", .t = .TimeMilliseconds, .min_value = 0.0, .max_value = 500 },
-        .{ .id = 0x546487f1, .name = "Shaker Env: Delay (beat 2)", .t = .TimeMilliseconds, .min_value = 0.0, .max_value = 500 },
-        .{ .id = 0x9ff538eb, .name = "Shaker Env: Delay (beat 3)", .t = .TimeMilliseconds, .min_value = 0.0, .max_value = 500 },
-        .{ .id = 0x6f11886a, .name = "Shaker Env: Delay (beat 4)", .t = .TimeMilliseconds, .min_value = 0.0, .max_value = 500 },
-        .{ .id = 0x5935e90a, .name = "% Volume Beat 1" },
-        .{ .id = 0x3c2799cb, .name = "% Volume Beat 2" },
-        .{ .id = 0x154b3694, .name = "% Volume Beat 3" },
-        .{ .id = 0x3cf7df5f, .name = "% Volume Beat 4" },
-        .{ .id = 0xe1d8f811, .name = "Swing", .t = .TVal },
+        .{ .id = 0xe100e599, .name = "A0", .t = .TVal },
+        .{ .id = 0xe100e59A, .name = "A1", .t = .TVal },
     };
 
     comptime {
@@ -755,10 +740,11 @@ pub const MyPlugin = struct {
         return &p.plugin;
     }
 
-    var prev_sample = [2]f32{
+    var x_n_minus_1: [2]f32 = [2]f32{
         0.0,
         0.0,
     };
+
     var on_sample: usize = 0;
     var play: bool = false;
     var block_sample_start: usize = 0;
@@ -798,76 +784,39 @@ pub const MyPlugin = struct {
             }
 
             const gain_main = @floatCast(f32, plug.params.values.gain_amplitude_main);
-
-            const loop_sample_length = @floatToInt(usize, std.math.round(plug.sample_rate * 60.0 / plug.tempo));
-            const loop_sample_length_quarter = loop_sample_length / 4;
-            const beat_on_sample_length = loop_sample_length_quarter + @floatToInt(usize, @intToFloat(f64, loop_sample_length_quarter / 2) * plug.params.values.swing);
-            const beat_off_sample_length = (loop_sample_length_quarter * 2) - beat_on_sample_length;
-
-            const length_a = @floatToInt(usize, std.math.round((plug.params.values.length_a / 1000.0) * plug.sample_rate));
-            const length_d_1 = @floatToInt(usize, std.math.round((plug.params.values.length_d_beat_1 / 1000.0) * plug.sample_rate));
-            const length_d_2 = @floatToInt(usize, std.math.round((plug.params.values.length_d_beat_2 / 1000.0) * plug.sample_rate));
-            const length_d_3 = @floatToInt(usize, std.math.round((plug.params.values.length_d_beat_3 / 1000.0) * plug.sample_rate));
-            const length_d_4 = @floatToInt(usize, std.math.round((plug.params.values.length_d_beat_4 / 1000.0) * plug.sample_rate));
+            const a0 = @floatCast(f32, plug.params.values.a0);
+            const a1 = @floatCast(f32, plug.params.values.a1);
 
             while (frame_index < next_event_frame) : (frame_index += 1) {
-                if (play) {
-                    const beat: struct { sample: usize, num: usize } = get_beat: {
-                        var sample = on_sample % loop_sample_length;
-                        var sample_length: usize = 0;
-                        if (sample < sample_length + beat_on_sample_length) {
-                            break :get_beat .{ .sample = sample, .num = 0 };
-                        }
-                        sample_length += beat_on_sample_length;
-                        if (sample < sample_length + beat_off_sample_length) {
-                            break :get_beat .{ .sample = sample - sample_length, .num = 1 };
-                        }
-                        sample_length += beat_off_sample_length;
-                        if (sample < sample_length + beat_on_sample_length) {
-                            break :get_beat .{ .sample = sample - sample_length, .num = 2 };
-                        }
-                        sample_length += beat_on_sample_length;
-                        break :get_beat .{ .sample = sample - sample_length, .num = 3 };
-                    };
 
-                    const saw = util.envAD(beat.sample, length_a, switch (beat.num) {
-                        0 => length_d_1,
-                        1 => length_d_2,
-                        2 => length_d_3,
-                        3 => length_d_4,
-                        else => unreachable,
-                    });
-                    const gain_beat = switch (beat.num) {
-                        0 => @floatCast(f32, plug.params.values.gain_amplitude_beat_1),
-                        1 => @floatCast(f32, plug.params.values.gain_amplitude_beat_2),
-                        2 => @floatCast(f32, plug.params.values.gain_amplitude_beat_3),
-                        3 => @floatCast(f32, plug.params.values.gain_amplitude_beat_4),
-                        else => unreachable,
-                    };
+                // pretend input (sythensized white noise)
+                const x_n_0 = util.randAmplitudeValue() * gain_main;
+                const x_n_1 = if (plug.params.values.stereo == 0.0) x_n_0 else util.randAmplitudeValue() * gain_main;
+                const x_n = [2]f32{
+                    x_n_0,
+                    x_n_1,
+                };
 
-                    const out_0 = util.randAmplitudeValue() * gain_main * gain_beat * saw;
-                    const out_1 = if (plug.params.values.stereo == 0.0) out_0 else util.randAmplitudeValue() * gain_main * gain_beat * saw;
+                var y_n = x_n;
 
-                    const out = [2]f32{
-                        out_0,
-                        out_1,
-                    };
+                y_n[0] = x_n[0] * a0 + x_n_minus_1[0] * a1;
+                y_n[1] = x_n[1] * a0 + x_n_minus_1[1] * a1;
 
-                    process.*.audio_outputs[0].data32[0][frame_index] = out[0];
-                    process.*.audio_outputs[0].data32[1][frame_index] = out[1];
+                process.*.audio_outputs[0].data32[0][frame_index] = y_n[0];
+                process.*.audio_outputs[0].data32[1][frame_index] = y_n[1];
 
-                    on_sample += 1;
-                    prev_sample = out;
-                }
-
-                on_block_sample += 1;
+                on_sample += 1;
+                x_n_minus_1 = x_n;
             }
+
+            on_block_sample += 1;
         }
 
         return c.CLAP_PROCESS_SLEEP;
     }
 
     fn do_process_event(plug: *MyPlugin, hdr: [*c]const c.clap_event_header_t, out_events: *const c.clap_output_events_t) void {
+        _ = out_events;
         if (hdr.*.space_id == c.CLAP_CORE_EVENT_SPACE_ID) {
             switch (hdr.*.type) {
                 c.CLAP_EVENT_PARAM_VALUE => {
@@ -877,30 +826,6 @@ pub const MyPlugin = struct {
                 c.CLAP_EVENT_TRANSPORT => {
                     const ev = c_cast([*c]const c.clap_event_transport_t, hdr);
                     plug.tempo = ev.*.tempo;
-                },
-                c.CLAP_EVENT_MIDI => {
-                    const ev = c_cast([*c]const c.clap_event_midi_t, hdr);
-                    switch (ev.*.data[0]) {
-                        0x90 => { // Note On
-                            const velocity = ev.*.data[2];
-                            if (velocity == 0) {
-                                play = false;
-                            } else {
-                                play = true;
-                                on_sample = block_sample_start + on_block_sample;
-                            }
-                        },
-                        0x80 => { // Note Off
-                            play = false;
-                        },
-                        176 => { // CC
-                            if (ev.*.data[1] == 1) {
-                                const value = @intToFloat(f32, ev.*.data[2]) / 127.0;
-                                plug.params.setValueTellHost("gain_amplitude_main", value, hdr.*.time, out_events);
-                            }
-                        },
-                        else => {},
-                    }
                 },
                 else => {},
             }
