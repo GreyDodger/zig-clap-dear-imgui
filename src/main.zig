@@ -50,10 +50,22 @@ const Gui = struct {
                 c.ImGui_TextUnformatted(str.ptr);
             }
 
-            {
-                var value = @floatCast(f32, plug.params.values.gain_amplitude_main);
-                if (c.ImGui_SliderFloatEx("Volume", &value, 0.0, 1.0, "%.3f", 0)) {
-                    plug.params.values.gain_amplitude_main = @floatCast(f64, value);
+            const fields = std.meta.fields(Params.Values);
+            inline for (fields) |field, field_index| {
+                const meta = Params.value_metas[field_index];
+                switch (meta.t) {
+                    .Bool => {
+                        var value = @field(plug.params.values, field.name) > 0.5;
+                        if (c.ImGui_Checkbox(meta.name.ptr, &value)) {
+                            @field(plug.params.values, field.name) = if (value) 1.0 else 0.0;
+                        }
+                    },
+                    else => {
+                        var value = @floatCast(f32, @field(plug.params.values, field.name));
+                        if (c.ImGui_SliderFloatEx(meta.name.ptr, &value, 0.0, 1.0, "%.3f", 0)) {
+                            @field(plug.params.values, field.name) = @floatCast(f64, value);
+                        }
+                    },
                 }
             }
         }
