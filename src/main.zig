@@ -50,9 +50,15 @@ const Gui = struct {
                 c.ImGui_TextUnformatted(str.ptr);
             }
 
+            _ = c.ImGui_Checkbox("Bypass Filter", &MyPlugin.bypass_filter);
+
             const fields = std.meta.fields(Params.Values);
             inline for (fields) |field, field_index| {
                 const meta = Params.value_metas[field_index];
+
+                c.ImGui_PushID(meta.name.ptr);
+                defer c.ImGui_PopID();
+
                 switch (meta.t) {
                     .Bool => {
                         var value = @field(plug.params.values, field.name) > 0.5;
@@ -60,9 +66,26 @@ const Gui = struct {
                             @field(plug.params.values, field.name) = if (value) 1.0 else 0.0;
                         }
                     },
+                    .FilterCoefficient => {
+                        var value = @floatCast(f32, @field(plug.params.values, field.name));
+                        if (c.ImGui_DragFloatEx(meta.name.ptr, &value, 0.001, meta.min_value, meta.max_value, "%.3f", 0)) {
+                            @field(plug.params.values, field.name) = @floatCast(f64, value);
+                        }
+                        if (c.ImGui_Button("0")) {
+                            @field(plug.params.values, field.name) = 0;
+                        }
+                        c.ImGui_SameLine();
+                        if (c.ImGui_Button("-1")) {
+                            @field(plug.params.values, field.name) = -1;
+                        }
+                        c.ImGui_SameLine();
+                        if (c.ImGui_Button("1")) {
+                            @field(plug.params.values, field.name) = 1;
+                        }
+                    },
                     else => {
                         var value = @floatCast(f32, @field(plug.params.values, field.name));
-                        if (c.ImGui_SliderFloatEx(meta.name.ptr, &value, 0.0, 1.0, "%.3f", 0)) {
+                        if (c.ImGui_DragFloatEx(meta.name.ptr, &value, 0.001, meta.min_value, meta.max_value, "%.3f", 0)) {
                             @field(plug.params.values, field.name) = @floatCast(f64, value);
                         }
                     },
@@ -260,21 +283,30 @@ pub const Params = struct {
         VolumeDB,
         TimeSamples,
         TimeMilliseconds,
-        TVal,
+        TVal, // 0 to 1
+        FilterCoefficient,
     };
 
     const Values = struct {
         stereo: f64 = 1.0,
         gain_amplitude_main: f64 = 0.5,
+
         a0: f64 = 1.0,
         a1: f64 = 0.0,
+        a2: f64 = 0.0,
+
+        b1: f64 = 0.0,
+        b2: f64 = 0.0,
     };
 
     const value_metas = [std.meta.fields(Values).len]ValueMeta{
         .{ .id = 0x5da004c1, .name = "Stereo", .t = .Bool },
         .{ .id = 0xe100e598, .name = "Volume" },
-        .{ .id = 0xe100e599, .name = "A0", .t = .TVal },
-        .{ .id = 0xe100e59A, .name = "A1", .t = .TVal },
+        .{ .id = 0xe100e599, .name = "A0", .t = .FilterCoefficient, .min_value = -2, .max_value = 2 },
+        .{ .id = 0xe100e59A, .name = "A1", .t = .FilterCoefficient, .min_value = -2, .max_value = 2 },
+        .{ .id = 0xe100e59B, .name = "A2", .t = .FilterCoefficient, .min_value = -2, .max_value = 2 },
+        .{ .id = 0xe100e59C, .name = "B1", .t = .FilterCoefficient, .min_value = -2, .max_value = 2 },
+        .{ .id = 0xe100e59D, .name = "B2", .t = .FilterCoefficient, .min_value = -2, .max_value = 2 },
     };
 
     comptime {
@@ -756,9 +788,22 @@ pub const MyPlugin = struct {
         0.0,
         0.0,
     };
+    var x_n_minus_2: [2]f32 = [2]f32{
+        0.0,
+        0.0,
+    };
+    var y_n_minus_1: [2]f32 = [2]f32{
+        0.0,
+        0.0,
+    };
+    var y_n_minus_2: [2]f32 = [2]f32{
+        0.0,
+        0.0,
+    };
 
     var on_sample: usize = 0;
     var play: bool = false;
+    var bypass_filter: bool = false;
     var block_sample_start: usize = 0;
     var on_block_sample: usize = 0;
 
@@ -798,10 +843,12 @@ pub const MyPlugin = struct {
             const gain_main = @floatCast(f32, plug.params.values.gain_amplitude_main);
             const a0 = @floatCast(f32, plug.params.values.a0);
             const a1 = @floatCast(f32, plug.params.values.a1);
+            const a2 = @floatCast(f32, plug.params.values.a2);
+            const b1 = @floatCast(f32, plug.params.values.b1);
+            const b2 = @floatCast(f32, plug.params.values.b2);
 
             while (frame_index < next_event_frame) : (frame_index += 1) {
-
-                // pretend input (sythensized white noise)
+                // generate noise
                 const x_n_0 = util.randAmplitudeValue() * gain_main;
                 const x_n_1 = if (plug.params.values.stereo == 0.0) x_n_0 else util.randAmplitudeValue() * gain_main;
                 const x_n = [2]f32{
@@ -809,16 +856,27 @@ pub const MyPlugin = struct {
                     x_n_1,
                 };
 
-                var y_n = x_n;
+                // biquad filter
+                var y_n = [2]f32{
+                    (x_n[0] * a0) + (x_n_minus_1[0] * a1) + (x_n_minus_2[0] * a2) - (y_n_minus_1[0] * b1) - (y_n_minus_2[0] * b2),
+                    (x_n[1] * a0) + (x_n_minus_1[1] * a1) + (x_n_minus_2[1] * a2) - (y_n_minus_1[1] * b1) - (y_n_minus_2[1] * b2),
+                };
 
-                y_n[0] = x_n[0] * a0 + x_n_minus_1[0] * a1;
-                y_n[1] = x_n[1] * a0 + x_n_minus_1[1] * a1;
-
-                process.*.audio_outputs[0].data32[0][frame_index] = y_n[0];
-                process.*.audio_outputs[0].data32[1][frame_index] = y_n[1];
+                if (bypass_filter) {
+                    process.*.audio_outputs[0].data32[0][frame_index] = x_n[0];
+                    process.*.audio_outputs[0].data32[1][frame_index] = x_n[1];
+                } else {
+                    process.*.audio_outputs[0].data32[0][frame_index] = y_n[0];
+                    process.*.audio_outputs[0].data32[1][frame_index] = y_n[1];
+                }
 
                 on_sample += 1;
+
+                x_n_minus_2 = x_n_minus_1;
                 x_n_minus_1 = x_n;
+
+                y_n_minus_2 = y_n_minus_1;
+                y_n_minus_1 = y_n;
             }
 
             on_block_sample += 1;
