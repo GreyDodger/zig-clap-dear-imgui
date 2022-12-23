@@ -180,11 +180,17 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 extern "C" {
 
 
-void platformGuiCreate(const void** gui_data, const clap_plugin_t* plugin)
+void platformGuiCreate(const void** gui_data, const clap_plugin_t* plugin, uint32_t init_width, uint32_t init_height)
 {
 	GuiData* ptr = (GuiData*)malloc(sizeof(GuiData));
 	(*ptr) = GuiData{};
 	ptr->plugin = plugin;
+	if(init_width != 0) {
+		ptr->window_width = init_width;
+	}
+	if(init_height != 0) {
+		ptr->window_height = init_height;
+	}
 
 	(*gui_data) = (void*)ptr;
 

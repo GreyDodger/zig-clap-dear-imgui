@@ -16,6 +16,8 @@ const util = @import("util.zig");
 const c_cast = std.zig.c_translation.cast;
 const global = @import("global.zig");
 
+var text_buffer = [_]u8{0} ** 256;
+
 extern fn myDLLMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DWORD) callconv(.C) void;
 pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DWORD, lpvReserved: std.os.windows.LPVOID) callconv(std.os.windows.WINAPI) std.os.windows.BOOL {
     _ = lpvReserved;
@@ -24,15 +26,17 @@ pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DW
 }
 
 const Gui = struct {
-    extern fn platformGuiCreate(ptr: *const ?*anyopaque, plugin: [*c]const c.clap_plugin_t) callconv(.C) void;
+    extern fn platformGuiCreate(ptr: *const ?*anyopaque, plugin: [*c]const c.clap_plugin_t, init_width: u32, init_height: u32) callconv(.C) void;
     extern fn platformGuiDestroy(ptr: ?*anyopaque) callconv(.C) void;
     extern fn platformGuiSetParent(ptr: ?*anyopaque, window: [*c]const c.clap_window_t) callconv(.C) void;
     extern fn platformGuiSetSize(ptr: ?*anyopaque, width: [*c]u32, height: [*c]u32) callconv(.C) void;
     extern fn platformGuiGetSize(ptr: ?*anyopaque, width: [*c]u32, height: [*c]u32) callconv(.C) void;
     extern fn platformGuiShow(ptr: ?*anyopaque) callconv(.C) void;
     extern fn platformGuiHide(ptr: ?*anyopaque) callconv(.C) void;
-
     extern fn dllMain() callconv(.C) void;
+
+    client_width: u32 = 0,
+    client_height: u32 = 0,
 
     pub export fn imGuiFrame(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
@@ -51,6 +55,7 @@ const Gui = struct {
             }
 
             _ = c.ImGui_Checkbox("Bypass Filter", &MyPlugin.bypass_filter);
+            _ = c.ImGui_InputText("Test Text", &text_buffer, text_buffer.len, 0);
 
             const fields = std.meta.fields(Params.Values);
             inline for (fields) |field, field_index| {
@@ -183,7 +188,7 @@ const Gui = struct {
     // [main-thread]
     fn show(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiShow(plug.gui_data);
+        platformGuiShow(plug.platform_gui_data);
         return true;
     }
 
@@ -192,7 +197,7 @@ const Gui = struct {
     // [main-thread]
     fn hide(plugin: [*c]const c.clap_plugin_t) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiHide(plug.gui_data);
+        platformGuiHide(plug.platform_gui_data);
         return true;
     }
 
@@ -200,27 +205,44 @@ const Gui = struct {
         _ = api;
         _ = is_floating;
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiCreate(&plug.gui_data, plugin);
+        platformGuiCreate(&plug.platform_gui_data, plugin, plug.gui.client_width, plug.gui.client_height);
         return true;
     }
     fn guiDestroy(plugin: [*c]const c.clap_plugin_t) callconv(.C) void {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiDestroy(plug.gui_data);
+        platformGuiDestroy(plug.platform_gui_data);
     }
     fn guiSetParent(plugin: [*c]const c.clap_plugin_t, window: [*c]const c.clap_window_t) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiSetParent(plug.gui_data, window);
+        platformGuiSetParent(plug.platform_gui_data, window);
         return true;
     }
     fn guiSetSize(plugin: [*c]const c.clap_plugin_t, width: u32, height: u32) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiSetSize(plug.gui_data, width, height);
+        plug.gui.client_width = width;
+        plug.gui.client_height = height;
+        platformGuiSetSize(plug.platform_gui_data, width, height);
         return true;
     }
     fn guiGetSize(plugin: [*c]const c.clap_plugin_t, width: [*c]u32, height: [*c]u32) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        platformGuiGetSize(plug.gui_data, width, height);
+        platformGuiGetSize(plug.platform_gui_data, width, height);
+        plug.gui.client_width = width.*;
+        plug.gui.client_height = height.*;
         return true;
+    }
+
+    fn serializedSize(_: Gui) usize {
+        return @sizeOf(u32) * 2;
+    }
+    fn serialize(self: Gui, stream: *const c.clap_ostream_t) !void {
+        try State.write(stream, self.client_width);
+        try State.write(stream, self.client_height);
+    }
+    fn deserialize(self: *Gui, stream: *const c.clap_istream_t) !usize {
+        self.client_width = try State.read(stream, u32);
+        self.client_height = try State.read(stream, u32);
+        return self.serializedSize();
     }
 
     const Data = c.clap_plugin_gui_t{
@@ -473,42 +495,42 @@ pub const Params = struct {
         .flush = flush,
     };
 
-    fn write(stream: *const c.clap_ostream_t, value: anytype) !void {
-        if (stream.*.write.?(stream, &value, @sizeOf(@TypeOf(value))) != @sizeOf(@TypeOf(value))) {
-            return error.WriteError;
-        }
-    }
-    fn read(stream: *const c.clap_istream_t, comptime T: type) !T {
-        var result: T = undefined;
-        if (stream.*.read.?(stream, &result, @sizeOf(T)) != @sizeOf(T)) {
-            return error.ReadError;
-        }
+    fn serializedSize(_: Params) usize {
+        const fields = std.meta.fields(Values);
+        var result: usize = @sizeOf(@TypeOf(fields.len));
+        result += fields.len * (@sizeOf(u32) + @sizeOf(f64));
         return result;
     }
-    fn writeAll(self: Params, stream: *const c.clap_ostream_t) !void {
+    fn serialize(self: Params, stream: *const c.clap_ostream_t) !void {
         const fields = std.meta.fields(Values);
-        try write(stream, fields.len);
+        try State.write(stream, fields.len);
         inline for (fields) |field, field_index| {
-            try write(stream, Params.value_metas[field_index].id);
-            try write(stream, @field(self.values, field.name));
+            try State.write(stream, Params.value_metas[field_index].id);
+            try State.write(stream, @field(self.values, field.name));
         }
     }
-    fn readAll(self: *Params, stream: *const c.clap_istream_t) !void {
+    fn deserialize(self: *Params, stream: *const c.clap_istream_t) !usize {
+        var read_bytes: usize = 0;
         const fields = std.meta.fields(Values);
-        const num_values = try read(stream, usize);
+        const num_values = try State.read(stream, usize);
+        read_bytes += @sizeOf(usize);
         var i: usize = 0;
         while (i < num_values) : (i += 1) {
-            const id = try read(stream, u32);
+            const id = try State.read(stream, u32);
+            read_bytes += @sizeOf(u32);
             inline for (value_metas) |meta, meta_index| {
                 if (id == meta.id) {
-                    @field(self.values, fields[meta_index].name) = try read(stream, f64);
+                    @field(self.values, fields[meta_index].name) = try State.read(stream, f64);
+                    read_bytes += @sizeOf(f64);
                     break;
                 }
             } else {
                 // discard value
-                _ = try read(stream, f64);
+                _ = try State.read(stream, f64);
+                read_bytes += @sizeOf(f64);
             }
         }
+        return read_bytes;
     }
 
     pub fn setValue(self: *Params, param_id: u32, value: f64) void {
@@ -622,9 +644,39 @@ const Latency = struct {
 };
 
 const State = struct {
+    const header: u32 = 0xd40fa068;
+    const version: u32 = 0x00000001;
+
+    // state sections (id: u32, size: u64)
+    const section_id_params: u32 = 0xFF000001;
+    const section_id_gui: u32 = 0xFF000002;
+
+    fn write(stream: *const c.clap_ostream_t, value: anytype) !void {
+        if (stream.*.write.?(stream, &value, @sizeOf(@TypeOf(value))) != @sizeOf(@TypeOf(value))) {
+            return error.WriteError;
+        }
+    }
+    fn read(stream: *const c.clap_istream_t, comptime T: type) !T {
+        var result: T = undefined;
+        if (stream.*.read.?(stream, &result, @sizeOf(T)) != @sizeOf(T)) {
+            return error.ReadError;
+        }
+        return result;
+    }
+    fn readExpect(stream: *const c.clap_istream_t, expect_value: anytype) !void {
+        const T = @TypeOf(expect_value);
+        var result: T = undefined;
+        if (stream.*.read.?(stream, &result, @sizeOf(T)) != @sizeOf(T)) {
+            return error.ReadError;
+        }
+        if (result != expect_value) {
+            return error.ReadError;
+        }
+    }
+
     fn save(plugin: [*c]const c.clap_plugin_t, stream: [*c]const c.clap_ostream_t) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        plug.params.writeAll(stream) catch {
+        saveInner(plug, stream) catch {
             return false;
         };
         return true;
@@ -632,10 +684,59 @@ const State = struct {
 
     fn load(plugin: [*c]const c.clap_plugin_t, stream: [*c]const c.clap_istream_t) callconv(.C) bool {
         var plug = c_cast(*MyPlugin, plugin.*.plugin_data);
-        plug.params.readAll(stream) catch {
+        loadInner(plug, stream) catch {
             return false;
         };
         return true;
+    }
+
+    fn saveInner(plug: *MyPlugin, stream: [*c]const c.clap_ostream_t) !void {
+        try write(stream, header);
+        try write(stream, version);
+
+        // number of sections
+        try write(stream, @as(u32, 2));
+
+        try write(stream, section_id_params);
+        try write(stream, @intCast(u64, plug.params.serializedSize()));
+        try plug.params.serialize(stream);
+
+        try write(stream, section_id_gui);
+        try write(stream, @intCast(u64, plug.gui.serializedSize()));
+        try plug.gui.serialize(stream);
+    }
+    fn loadInner(plug: *MyPlugin, stream: [*c]const c.clap_istream_t) !void {
+        try readExpect(stream, header);
+        try readExpect(stream, version);
+
+        var section_index: u32 = 0;
+        const sections_len: u32 = try read(stream, u32);
+
+        while (section_index < sections_len) : (section_index += 1) {
+            const id = try read(stream, u32);
+            const size = try read(stream, u64);
+
+            switch (id) {
+                section_id_params => {
+                    const read_bytes = try plug.params.deserialize(stream);
+                    if (read_bytes != size) {
+                        return error.ReadError;
+                    }
+                },
+                section_id_gui => {
+                    const read_bytes = try plug.gui.deserialize(stream);
+                    if (read_bytes != size) {
+                        return error.ReadError;
+                    }
+                },
+                else => {
+                    var i: u64 = 0;
+                    while (i < size) : (i += 0) {
+                        _ = try read(stream, u8);
+                    }
+                },
+            }
+        }
     }
 
     const Data = c.clap_plugin_state_t{
@@ -654,8 +755,9 @@ pub const MyPlugin = struct {
     hostLog: ?*const c.clap_host_log_t,
     hostLatency: [*c]const c.clap_host_latency_t,
     hostThreadCheck: [*c]const c.clap_host_thread_check_t,
-    gui_data: ?*anyopaque = null,
     params: Params = Params{},
+    gui: Gui = Gui{},
+    platform_gui_data: ?*anyopaque = null,
 
     const desc = c.clap_plugin_descriptor_t{
         .clap_version = c.clap_version_t{ .major = c.CLAP_VERSION_MAJOR, .minor = c.CLAP_VERSION_MINOR, .revision = c.CLAP_VERSION_REVISION },
