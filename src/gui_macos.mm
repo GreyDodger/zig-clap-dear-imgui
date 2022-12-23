@@ -81,7 +81,7 @@ MTKView* mtk_view = nullptr;
 
 extern "C" {
 
-void platformGuiCreate(const void** gui_data, const clap_plugin_t* plugin) {
+void platformGuiCreate(const void** gui_data, const clap_plugin_t* plugin, uint32_t init_width, uint32_t init_height) {
     global_plugin = plugin;
 
     _device = MTLCreateSystemDefaultDevice();
