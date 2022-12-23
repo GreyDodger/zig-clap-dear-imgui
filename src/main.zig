@@ -16,8 +16,6 @@ const util = @import("util.zig");
 const c_cast = std.zig.c_translation.cast;
 const global = @import("global.zig");
 
-var text_buffer = [_]u8{0} ** 256;
-
 extern fn myDLLMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DWORD) callconv(.C) void;
 pub fn DllMain(hinstance: std.os.windows.HINSTANCE, fdwReason: std.os.windows.DWORD, lpvReserved: std.os.windows.LPVOID) callconv(std.os.windows.WINAPI) std.os.windows.BOOL {
     _ = lpvReserved;
@@ -55,7 +53,6 @@ const Gui = struct {
             }
 
             _ = c.ImGui_Checkbox("Bypass Filter", &MyPlugin.bypass_filter);
-            _ = c.ImGui_InputText("Test Text", &text_buffer, text_buffer.len, 0);
 
             const fields = std.meta.fields(Params.Values);
             inline for (fields) |field, field_index| {
@@ -72,20 +69,21 @@ const Gui = struct {
                         }
                     },
                     .FilterCoefficient => {
-                        var value = @floatCast(f32, @field(plug.params.values, field.name));
-                        if (c.ImGui_DragFloatEx(meta.name.ptr, &value, 0.001, meta.min_value, meta.max_value, "%.3f", 0)) {
-                            @field(plug.params.values, field.name) = @floatCast(f64, value);
-                        }
-                        if (c.ImGui_Button("0")) {
-                            @field(plug.params.values, field.name) = 0;
-                        }
-                        c.ImGui_SameLine();
                         if (c.ImGui_Button("-1")) {
                             @field(plug.params.values, field.name) = -1;
                         }
                         c.ImGui_SameLine();
+                        if (c.ImGui_Button("0")) {
+                            @field(plug.params.values, field.name) = 0;
+                        }
+                        c.ImGui_SameLine();
                         if (c.ImGui_Button("1")) {
                             @field(plug.params.values, field.name) = 1;
+                        }
+                        c.ImGui_SameLine();
+                        var value = @floatCast(f32, @field(plug.params.values, field.name));
+                        if (c.ImGui_DragFloatEx(meta.name.ptr, &value, 0.001, meta.min_value, meta.max_value, "%.3f", 0)) {
+                            @field(plug.params.values, field.name) = @floatCast(f64, value);
                         }
                     },
                     else => {
