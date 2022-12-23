@@ -43,7 +43,7 @@ const Gui = struct {
         defer c.ImGui_Render();
 
         {
-            _ = c.ImGui_Begin("MyPlugin", null, 0);
+            _ = c.ImGui_Begin("Misc", null, 0);
             defer c.ImGui_End();
 
             {
@@ -53,6 +53,11 @@ const Gui = struct {
             }
 
             _ = c.ImGui_Checkbox("Bypass Filter", &MyPlugin.bypass_filter);
+        }
+
+        {
+            _ = c.ImGui_Begin("Params", null, 0);
+            defer c.ImGui_End();
 
             const fields = std.meta.fields(Params.Values);
             inline for (fields) |field, field_index| {
