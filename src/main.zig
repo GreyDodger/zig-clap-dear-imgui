@@ -719,25 +719,23 @@ const State = struct {
             const id = try read(stream, u32);
             const size = try read(stream, u64);
 
+            var read_bytes: usize = 0;
             switch (id) {
                 section_id_params => {
-                    const read_bytes = try plug.params.deserialize(stream);
-                    if (read_bytes != size) {
-                        return error.ReadError;
-                    }
+                    read_bytes += try plug.params.deserialize(stream);
                 },
                 section_id_gui => {
-                    const read_bytes = try plug.gui.deserialize(stream);
-                    if (read_bytes != size) {
-                        return error.ReadError;
-                    }
+                    read_bytes += try plug.gui.deserialize(stream);
                 },
-                else => {
-                    var i: u64 = 0;
-                    while (i < size) : (i += 0) {
-                        _ = try read(stream, u8);
-                    }
-                },
+                else => {},
+            }
+
+            if (read_bytes > size) {
+                return error.ReadError;
+            }
+
+            while (read_bytes < size) : (read_bytes += 1) {
+                _ = try read(stream, u8);
             }
         }
     }
